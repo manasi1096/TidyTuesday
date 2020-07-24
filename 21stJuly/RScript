@@ -1,0 +1,131 @@
+library(tidyverse)
+library(reshape2)
+library(broom)
+library(highcharter)
+library(extrafont)
+
+# Getting data in the required format -------------------------------------
+
+animal_outcomes <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-07-21/animal_outcomes.csv')
+
+animal_outcomes[is.na(animal_outcomes)] <- 0
+
+outcomes = melt(animal_outcomes, id = c("year", "animal_type", "outcome"))
+outcomes = outcomes %>% filter(outcome == "Euthanized" & variable == "Total")
+
+
+cats = outcomes %>% filter(animal_type == "Cats")
+dogs = outcomes %>% filter(animal_type == "Dogs")
+
+outcomes = outcomes %>% filter(variable == "Total") %>% 
+  mutate(Animals = ifelse(animal_type == "Dogs", "Dogs", 
+                          ifelse(animal_type == "Cats", "Cats", "Other Animals")))
+
+outcomes = outcomes %>% 
+  group_by(Animals, year) %>% 
+  summarise(value = sum(value)) %>% 
+  data.frame()
+
+others = outcomes %>% 
+  filter(Animals == "Other Animals") %>% 
+  group_by(year) %>% 
+  summarise(value = sum(value)) %>% 
+  data.frame()
+
+
+# Line Of Best Fit --------------------------------------------------------
+
+
+dogs_mod  = loess(value ~ year, data = dogs)
+fit_dogs = arrange(augment(dogs_mod), year)
+
+cats_mod  = loess(value ~ year, data = cats)
+fit_cats = arrange(augment(cats_mod), year)
+
+other_mod = loess(value ~ year, data = others)
+fit_other = arrange(augment(other_mod), year)
+
+# Custom Theme ------------------------------------------------------------
+
+
+thm2 <- hc_theme(
+  chart = list(
+    backgroundColor = NULL,
+    divBackgroundImage = "https://cdn2-www.dogtime.com/assets/uploads/2019/05/DogCatsCuddling.jpg"
+  ),
+  title = list(
+    style = list(
+      color = 'black',
+      fontFamily = "Oswald"
+      )))
+
+
+
+# Highcharts Plot  --------------------------------------------------------
+
+
+highchart() %>% 
+  hc_add_series(outcomes, type = "scatter",
+                hcaes(x =year , y = value, group = Animals, 
+                      size = value), color = c("#fee8c8", "#7fcdbb", "#bcbddc")) %>% 
+  hc_yAxis( tickLength = 0,
+            gridLineColor = 'transparent'
+  ) %>% 
+  hc_xAxis( tickLength = 0,
+            gridLineColor = 'transparent'
+  ) %>% 
+  hc_add_series(fit_dogs, type = "line", hcaes(x = year, y = .fitted),
+                name = "Fit", id= "fit",
+                showInLegend = F, color = "purple") %>% 
+  hc_add_series(fit_dogs, type = "arearange", 
+                hcaes(x = year, low = .fitted - 2*.se.fit,
+                      high =.fitted + 2*.se.fit),
+                linkedTo= "fit",
+                showInLegend = F, color = "#f7fcb9") %>% 
+  hc_add_series(fit_cats, type = "line", hcaes(x = year, y = .fitted),
+                name = "Fit2", id= "fit2",showInLegend = F) %>% 
+  hc_add_series(fit_cats, type = "arearange", 
+                hcaes(x = year, low = .fitted - 2*.se.fit,
+                      high =.fitted + 2*.se.fit),
+                linkedTo= "fit2",
+                showInLegend = F, color = "#fde0dd") %>% 
+  hc_add_series(fit_other, type = "line", hcaes(x = year, y = .fitted),
+                name = "Fit3", id= "fit3",
+                showInLegend = F) %>% 
+  hc_add_series(fit_other, type = "arearange", 
+                hcaes(x = year, low = .fitted - 2*.se.fit,
+                      high =.fitted + 2*.se.fit),
+                linkedTo= "fit3",
+                showInLegend = F, color = "#e5f5e0") %>% 
+  hc_add_annotation( 
+    labels = list(
+      list(
+        point = list(
+          x =outcomes$year[20],
+          y = outcomes$value[20],
+          xAxis=0,
+          yAxis=0     
+        ),
+        text = "1999 saw almost 6 times more dogs being euthanized as compared to 2018"
+      )
+    )
+  ) %>% 
+  hc_add_annotation( 
+    labels = list(
+      list(
+        point = list(
+          x =outcomes$year[9],
+          y = outcomes$value[9],
+          xAxis=0,
+          yAxis=0     
+        ),
+        text = "Post the 2009 peak, the euthanization of cats has been on a steady downfall! :)"
+      )
+    )
+  ) %>% 
+  hc_add_theme(thm2) %>% 
+  hc_title(text = " Euthanization Of  Animals In <i>Australia<i> : <b>1998 to 2018<b>") %>% 
+  hc_subtitle(text = "Good News : Lesser Dogs & Cats Are Being Euthanized & More Are Finding A Forever Home!",
+              style = list(fontWeight = "italic")) %>% 
+  hc_credits(text = "Data Source: RSPCA;
+                     Image Source: https://dogtime.com/lifestyle", enabled = T)
