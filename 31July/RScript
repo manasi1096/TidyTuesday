@@ -1,0 +1,216 @@
+library(gt)
+library(tidyverse)
+library(paletteer)
+penguins.csv <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-07-28/penguins.csv')
+
+
+data = penguins.csv %>% 
+  group_by(species, island, sex, year) %>% 
+  summarise_if(is.numeric, sum, na.rm = T) %>% 
+  data.frame()
+
+data$body_mass_g = data$body_mass_g/100
+
+table = data %>%
+  pivot_longer(bill_length_mm:body_mass_g, names_to =  "metric", values_to = "sum") %>% 
+  pivot_wider(names_from = metric, values_from = sum)
+
+
+ table = table %>% filter(is.na(sex) == F)                                                                          
+
+ table = table %>%
+  pivot_wider(names_from = sex, values_from = c("bill_length_mm", "bill_depth_mm","flipper_length_mm", "body_mass_g"))
+
+tab = table %>% 
+  tibble() %>%
+  filter(species == "Adelie") %>% 
+  group_by(island, year) %>% 
+  summarise_if(is.numeric, sum) %>% 
+ mutate(island = case_when(
+   island == "Biscoe" ~ "Biscoe Island",
+   island == "Dream" ~ "Dream Island",
+   island == "Torgersen" ~ "Torgersen Island")) %>% 
+  gt(rowname_col =  "year") %>%
+    tab_spanner(
+    label = "Male",
+    columns = vars(bill_length_mm_male, bill_depth_mm_male, 
+                   flipper_length_mm_male,body_mass_g_male)
+  ) %>% 
+  tab_spanner(
+    label = "Female",
+    columns = vars(bill_length_mm_female,bill_depth_mm_female, 
+                   flipper_length_mm_female, body_mass_g_female)
+  ) %>% 
+  tab_style(
+    style = list(
+      cell_text(
+        font = "Oswald",
+        align = "center"
+      )
+    ),
+    locations = cells_column_spanners(spanners = vars("Female", "Male"))
+  ) %>% 
+  summary_rows(
+    groups = TRUE,
+    columns = vars(bill_length_mm_male, bill_depth_mm_male, 
+                   flipper_length_mm_male,body_mass_g_male,
+                   bill_length_mm_female,bill_depth_mm_female, 
+                   flipper_length_mm_female, body_mass_g_female),
+    fns = list(AVERAGE = "mean"),
+               formatter = fmt_number,
+               use_seps = T,
+    decimals = 0
+  ) %>% 
+  fmt_number(columns = vars(bill_length_mm_male, bill_depth_mm_male, 
+                            flipper_length_mm_male,body_mass_g_male,
+                            bill_length_mm_female,bill_depth_mm_female, 
+                            flipper_length_mm_female, body_mass_g_female),
+                decimals = 0)%>% 
+  data_color(
+    columns = vars(bill_length_mm_male, bill_depth_mm_male, 
+                   flipper_length_mm_male,body_mass_g_male,
+                   bill_length_mm_female,bill_depth_mm_female, 
+                   flipper_length_mm_female, body_mass_g_female),
+    colors = scales::col_numeric(
+      palette = paletteer::paletteer_d(
+        palette = "palettetown::swablu"
+      ) %>% as.character(),
+      domain = NULL)) %>% 
+  tab_footnote(
+    footnote = "In mm",
+    locations = cells_column_labels(
+      columns  = vars(bill_length_mm_male, 
+                      bill_depth_mm_male, 
+                      flipper_length_mm_female,
+                      bill_length_mm_female,
+                      bill_depth_mm_female, 
+                      flipper_length_mm_male) 
+    )
+  ) %>% 
+  tab_footnote(
+    footnote = "In grams",
+    location = cells_column_labels(
+      columns = vars(body_mass_g_male, body_mass_g_female) 
+    )
+  ) %>% 
+  tab_style(
+    style = list(
+      cell_text(
+        font = "Oswald",
+        align = "center"
+      )
+    ),
+    locations = list(
+      cells_body(columns = vars(bill_length_mm_male, 
+                                bill_depth_mm_male, 
+                                flipper_length_mm_female,
+                                bill_length_mm_female,
+                                bill_depth_mm_female, 
+                                flipper_length_mm_male,
+                                body_mass_g_male, 
+                                body_mass_g_female))
+    )
+  ) %>% 
+
+  cols_label(
+    bill_length_mm_male = "Bill Length",
+    bill_depth_mm_male = "Bill Depth",
+    flipper_length_mm_male = "Flipper Length",
+    body_mass_g_male = "Body mass (in 00's)",
+    bill_length_mm_female = "Bill Length",
+    bill_depth_mm_female = "Bill Depth",
+    flipper_length_mm_female = "Flipper Length",
+    body_mass_g_female = "Body mass (in 00's)") %>% 
+  tab_header(
+    title = md(paste0(emo::ji("penguin"),emo::ji("penguin"),"All About Adelie Penguins",emo::ji("penguin"),emo::ji("penguin"))),
+    subtitle = "Yearly measurements of Bill depth, Bill length, Body Mass and Flipper Length in each island "
+  )  %>% 
+  cols_align(align = "right", columns = TRUE) %>%  
+  tab_options(
+    summary_row.background.color = "#feebe2",
+    row_group.background.color = "#ffffcc",
+    heading.background.color = "#c6dbef",
+    column_labels.background.color = "#edf8fb",
+    stub.background.color = "#edf8fb",
+    table.font.color = "#323232",
+    table_body.hlines.color = "#989898",
+    table_body.border.top.color = "#989898",
+    heading.border.bottom.color = "#989898",
+    row_group.border.top.color = "#989898",
+    row_group.border.bottom.style = "none",
+    stub.border.style = "dashed",
+    stub.border.color = "#989898",
+    stub.border.width = "1px",
+    summary_row.border.color = "#989898",
+    table.width = "60%",
+    footnotes.background.color = "#edf8fb",
+    source_notes.background.color = "#f6eff7",
+    source_notes.font.size = "8px",
+    footnotes.font.size = "9px"
+    ) %>% 
+  tab_style(
+    style = list(
+      cell_text(
+        font = "Oswald",
+        align = "center",
+        weight = "bold"
+      )
+    ),
+    locations = list(
+      cells_title(groups = "title")
+    )
+  ) %>%
+  # Adjust sub-title font
+  tab_style(
+    style = list(
+      cell_text(
+        font = "Oswald",
+        align = "center",
+        weight = "bold"
+      )
+    ),
+    locations = list(
+      cells_title(groups = "subtitle")
+    )
+  )  %>% 
+  gt::tab_style(
+    style = list(
+      cell_text(font = "Oswald", weight = "bold")
+    ),
+    locations = list(
+      cells_column_labels(gt::everything())
+    )
+)%>% 
+  tab_style(
+    style = list(
+      cell_text(
+        font = "Oswald",
+        align = "center",
+        weight = "bold"
+      )
+    ),
+    locations = list(
+      cells_row_groups(
+        groups  = c("Biscoe Island", "Dream Island", "Torgersen Island")
+      )
+    )
+  ) %>% 
+  tab_style(
+    style = list(
+      cell_text(
+        font = "Oswald",
+        align = "center",
+        weight = "bold"
+      )
+    ),
+    locations = cells_summary(groups = T, columns = T)
+  ) %>% 
+  opt_all_caps() %>% 
+  opt_table_outline() %>% 
+  tab_source_note("Data:Dr. Kristen Gorman &  Palmer Station LTER  | Viz: @ManasiM_10") 
+
+
+
+  
+
+
