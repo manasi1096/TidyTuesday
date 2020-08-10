@@ -1,0 +1,89 @@
+library(highcharter)
+library(purrr)
+library(htmlwidgets)
+library(htmltools)
+library(paletteer)
+library(extrafont)
+library(tidyr)
+
+energy_types <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-08-04/energy_types.csv')
+country_totals <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-08-04/country_totals.csv')
+
+country_totals2 = country_totals %>% 
+  select(country, country_name, type, level, `2018`) %>% 
+  pivot_wider(names_from = type,
+              values_from = `2018`) %>% 
+  filter(country_name %in% c("Belgium", "Germany", "France", "Italy", "Czechia"))
+
+country_totals3 = country_totals2 %>% head() %>% arrange(desc(Exports))
+
+
+p <- highchart() %>% 
+  hc_chart(type = "column",
+           inverted = TRUE,
+           polar = TRUE) %>% 
+  hc_plotOptions(column = list(stacking = "normal")) %>% 
+  hc_xAxis(categories= c("Germany","France","Italy","Czechia","Belgium"),
+           labels=list(useHTML=TRUE,
+                       formatter = JS("function() { 
+           return {
+                'Germany': 'Germany &nbsp;<span class=\x22 f16\x22><span  class=\x22 flag de \x22></span ></span>&nbsp;&nbsp;',
+                'France': 'France &nbsp;<span class=\x22 f16\x22><span  class=\x22 flag fr \x22></span ></span>&nbsp;&nbsp;&nbsp;',
+                'Italy': 'Italy &nbsp;<span class=\x22 f16\x22><span  class=\x22 flag it \x22></span ></span>&nbsp;&nbsp;',
+                'Czechia': 'Czechia &nbsp;<span class=\x22 f16\x22><span  class=\x22 flag cz \x22></span ></span>&nbsp;&nbsp;',
+                'Belgium': 'Belgium <span class=\x22 f16\x22><span  class=\x22 flag be\x22></span ></span>&nbsp;&nbsp;'
+            }[this.value]; 
+           }")
+                       
+           )
+  ) %>% 
+  hc_yAxis( tickLength = 0,
+            gridLineColor = 'transparent'
+  ) %>% 
+  hc_xAxis( tickLength = 0,
+            gridLineColor = 'transparent'
+  )%>% 
+  hc_add_series( data = country_totals3$Imports, name = "Imports" , color = "#ffa36c") %>% 
+  hc_add_series( data = country_totals3$Exports, name = "Exports", color = "#bbd196") %>% 
+  hc_add_series(data = country_totals3$`Energy absorbed by pumping`, name = "Energy absorbed by Pumping", color = "#3c2946") %>% 
+  hc_add_series(data = country_totals3$`Energy supplied`, name = "Energy Supplied", color = "#56556e") %>% 
+  hc_add_series(data = country_totals3$`Total net production`, name = "Total Net Production", color =  "#ffd571") %>% 
+  
+  hc_add_theme(thm2) %>% 
+  hc_legend(
+    layout = "vertical",
+    align = "left",
+    verticalAlign = "top",
+    floating = TRUE,
+    x = 90,
+    y = 45,
+    title = list(
+      text = "Type",
+      style = list(
+        textDecoration = "underline"
+      )
+    )
+  ) %>% 
+  hc_title(
+    text = "Energy Activity Of Top European Countries",
+    align = "center") %>% 
+  hc_credits(text = "Data - Eurostat, Viz - @ManasiM_10", enabled = T)
+
+
+
+thm2 <- hc_theme(
+  colors = c('red', 'green', 'blue'),
+  chart = list(
+    backgroundColor = "#b0cac7"
+  ),
+  title = list(
+    style = list(
+      color = "#333333",
+      fontFamily = "Oswald",
+      size = 30
+    )
+  ))
+
+prependContent(p, HTML('<link rel="stylesheet" href="https://github.com/downloads/lafeber/world-flags-sprite/flags16.css" />'))
+
+
